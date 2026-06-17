@@ -1,0 +1,30 @@
+# 本地模型权重和下载缓存，不纳入代码备份
+model_weights/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# 视频素材和切片文件体积较大，保留在本地
+video/
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# 运行产物
+log/
+logs/
+results/
+outputs/
+__pycache__/
+*.py[cod]
+
+# 本地环境与编辑器配置
+.codex/
+.env
+.venv/
+venv/
+.DS_Store
