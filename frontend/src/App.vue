@@ -111,7 +111,7 @@
             v-for="item in captions"
             :key="item.index"
             class="caption-item"
-            :class="{ active: item.index === currentIndex, playable: item.video_url }"
+            :class="{ active: item.index === currentIndex, playable: canReplayChunk(item) }"
             @click="playHistoryChunk(item)"
           >
             <div class="caption-meta">
@@ -119,7 +119,7 @@
               <span>{{ formatClock(item.start_time) }} - {{ formatClock(item.end_time) }}</span>
             </div>
             <div class="caption-text">{{ item.description || item.text || '生成中...' }}</div>
-            <div v-if="item.video_url" class="caption-action">点击回放这个 chunk</div>
+            <div v-if="canReplayChunk(item)" class="caption-action">点击回放这个 chunk</div>
           </div>
         </div>
       </aside>
@@ -156,6 +156,7 @@ const currentTime = ref(0)
 const duration = ref(0)
 const totalSegments = ref(0)
 const isStarting = ref(false)
+const ENABLE_HISTORY_REPLAY = false
 
 let eventSource = null
 let typingTimer = null
@@ -319,9 +320,13 @@ async function playNextChunk() {
 }
 
 async function playHistoryChunk(item) {
-  if (!item.video_url) return
+  if (!canReplayChunk(item)) return
   await playChunk(item, true)
   message.value = `正在回放第 ${item.index + 1} 个 chunk，后台处理仍在继续`
+}
+
+function canReplayChunk(item) {
+  return ENABLE_HISTORY_REPLAY && Boolean(item.video_url)
 }
 
 async function playChunk(chunk, historyPlayback) {
@@ -595,8 +600,10 @@ onBeforeUnmount(() => {
 }
 
 .video-container {
-  height: min(52vh, 460px);
-  min-height: 320px;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  max-height: 58vh;
+  min-height: 260px;
   position: relative;
   background: #000;
   display: flex;
@@ -738,6 +745,7 @@ onBeforeUnmount(() => {
 
 .side-card {
   min-height: 0;
+  max-height: calc(58vh + 44px);
   background: #232323;
   border: 1px solid #363636;
   border-radius: 12px;
@@ -760,6 +768,8 @@ onBeforeUnmount(() => {
 }
 
 .caption-list {
+  min-height: 0;
+  flex: 1;
   overflow: auto;
   padding: 10px;
 }
@@ -770,6 +780,15 @@ onBeforeUnmount(() => {
   background: #2b2b2b;
   border: 1px solid #363636;
   margin-bottom: 8px;
+}
+
+.caption-item.playable {
+  cursor: pointer;
+}
+
+.caption-item.playable:hover {
+  border-color: #8f7a39;
+  background: #302b20;
 }
 
 .caption-item.active {
@@ -790,6 +809,12 @@ onBeforeUnmount(() => {
   color: #e8e8e8;
   line-height: 1.55;
   font-size: 13px;
+}
+
+.caption-action {
+  margin-top: 6px;
+  color: #c9a640;
+  font-size: 12px;
 }
 
 .log-bar {
@@ -834,8 +859,7 @@ onBeforeUnmount(() => {
   }
 
   .video-container {
-    height: 300px;
-    min-height: 260px;
+    min-height: 0;
   }
 
   .status-bar {
