@@ -1,7 +1,73 @@
 # 实时解说后端接口文档
 
 后端入口：`/data/yjc/backend/api_server.py`  
+处理脚本：`/data/yjc/backend/build_commentary_video.py`  
+模型请求脚本：`/data/yjc/backend/eval_qwen3vl_video.py`  
 默认服务地址：`http://<server-host>:18080`
+
+
+
+## 一键启动
+
+项目根目录提供 tmux 启动脚本，会同时启动后端 API 和 Vue3 前端开发服务：
+
+```bash
+cd /data/yjc
+./start_realtime_app_tmux.sh
+```
+
+默认端口：
+
+- 后端 API：`18080`
+- 前端 Vite：`5173`
+- tmux session：`commentary-app`
+
+常用环境变量：
+
+```bash
+SESSION=commentary-demo BACKEND_PORT=18080 FRONTEND_PORT=5173 ./start_realtime_app_tmux.sh
+```
+
+脚本会打印本机和局域网访问地址。常用 tmux 命令：
+
+```bash
+tmux attach -t commentary-app
+tmux kill-session -t commentary-app
+```
+
+## 前端 Vue3 项目
+
+前端已经分离为 Vue3 + Vite 项目，目录是 `/data/yjc/frontend`：
+
+- 入口 HTML：`/data/yjc/frontend/index.html`
+- 主组件：`/data/yjc/frontend/src/App.vue`
+- Vite 配置：`/data/yjc/frontend/vite.config.js`
+- 后端托管访问：`http://<server-host>:18080/player`
+- Vite 开发访问：`http://<server-host>:5173/frontend/`
+- 根路径 `/` 会自动跳转到 `/player`
+
+前端命令：
+
+```bash
+cd /data/yjc/frontend
+npm install
+npm run dev
+npm run build
+```
+
+开发时可以运行 `npm run dev`，页面顶部填写后端地址，例如 `http://<server-host>:18080`。也可以通过 URL 参数指定：`/frontend/?api=http://<server-host>:18080`。
+
+生产时先执行 `npm run build` 生成 `/data/yjc/frontend/dist`，再启动后端。后端会优先托管 `frontend/dist`；如果还没 build，则托管 `frontend` 源目录里的 `index.html`。
+
+页面能力：
+
+1. 输入服务器视频路径。
+2. 点击“开始处理”。
+3. 自动调用 `POST /api/jobs`。
+4. 自动连接 `GET /api/jobs/{job_id}/events`。
+5. 收到 `chunk_ready` 后播放 chunk 视频。
+6. 收到 `caption_delta` / `caption_done` 后实时显示字幕。
+7. 右侧保留已生成字幕队列，底部显示任务进度。
 
 ## 接入流程
 

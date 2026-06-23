@@ -1,10 +1,10 @@
 
 ## 16s
-python3 /data/yjc/eval_qwen3vl_video.py --input /data/yjc/video/slices/30fps/v09_000.mp4 --fps 1
+python3 /data/yjc/backend/eval_qwen3vl_video.py --input /data/yjc/video/slices/30fps/v09_000.mp4 --fps 1
 
 
 ## 5s
-python3 /data/yjc/eval_qwen3vl_video.py --input /data/yjc/video/slice2/v01_000_00.mp4 --fps 1
+python3 /data/yjc/backend/eval_qwen3vl_video.py --input /data/yjc/video/slice2/v01_000_00.mp4 --fps 1
 
 
 
@@ -66,7 +66,7 @@ max-len=10000  爆模型上下文
 
 ## max-pixels
 
-python3 /data/yjc/eval_qwen3vl_video.py \
+python3 /data/yjc/backend/eval_qwen3vl_video.py \
 --input /data/yjc/video/slices/30fps/v10_000.mp4 \
 --fps 1 \
 --max-pixels $((360*420))

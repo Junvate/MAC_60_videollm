@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import json
-import sys
 import threading
 import time
 import uuid
@@ -12,28 +11,43 @@ from urllib.parse import quote
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+try:
+    from .build_commentary_video import (
+        DEFAULT_CAPTION_PROMPT,
+        FFMPEG,
+        VIDEO_SUFFIXES,
+        clean_caption,
+        ffprobe_duration,
+        segment_times,
+        video_encode_args,
+        write_caption_json,
+        write_srt,
+    )
+    from .eval_qwen3vl_video import prepare_env, stream_once
+except ImportError:
+    from build_commentary_video import (
+        DEFAULT_CAPTION_PROMPT,
+        FFMPEG,
+        VIDEO_SUFFIXES,
+        clean_caption,
+        ffprobe_duration,
+        segment_times,
+        video_encode_args,
+        write_caption_json,
+        write_srt,
+    )
+    from eval_qwen3vl_video import prepare_env, stream_once
+
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
-
-from build_commentary_video import (
-    DEFAULT_CAPTION_PROMPT,
-    FFMPEG,
-    VIDEO_SUFFIXES,
-    clean_caption,
-    ffprobe_duration,
-    segment_times,
-    video_encode_args,
-    write_caption_json,
-    write_srt,
-)
-from eval_qwen3vl_video import prepare_env, stream_once
-
-
 DEFAULT_JOBS_DIR = ROOT_DIR / "video" / "realtime_jobs"
+FRONTEND_SRC_DIR = ROOT_DIR / "frontend"
+FRONTEND_DIST_DIR = FRONTEND_SRC_DIR / "dist"
+FRONTEND_DIR = FRONTEND_DIST_DIR if FRONTEND_DIST_DIR.exists() else FRONTEND_SRC_DIR
 
 
 class StartJobRequest(BaseModel):
@@ -106,6 +120,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.mount("/frontend", StaticFiles(directory=FRONTEND_DIR), name="frontend")
 
 jobs = {}
 
@@ -262,6 +277,16 @@ def get_job_or_404(job_id):
 @app.get("/api/health")
 def health():
     return {"ok": True, "jobs": len(jobs)}
+
+
+@app.get("/")
+def index():
+    return RedirectResponse("/player")
+
+
+@app.get("/player")
+def player():
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 
 @app.post("/api/jobs")

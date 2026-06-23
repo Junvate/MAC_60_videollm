@@ -8,7 +8,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from eval_qwen3vl_video import prepare_env, stream_once
+try:
+    from .eval_qwen3vl_video import prepare_env, stream_once
+except ImportError:
+    from eval_qwen3vl_video import prepare_env, stream_once
 
 
 DEFAULT_CAPTION_PROMPT = (
