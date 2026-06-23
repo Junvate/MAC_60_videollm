@@ -68,6 +68,7 @@ def stream_once(
     timeout,
     min_pixels,
     max_pixels,
+    on_text_delta=None,
 ):
     # 单次评测 pipeline：
     # 1. 组装“文本 + 视频”的请求
@@ -135,6 +136,8 @@ def stream_once(
                     if first_token_latency is None:
                         first_token_latency = now() - started
                     text.append(piece)
+                    if on_text_delta:
+                        on_text_delta(piece)
 
     total_time = now() - started
     return {

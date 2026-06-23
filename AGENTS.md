@@ -1,1 +1,1 @@
-写代码的时候。注意不要写过多冗余的防御性代码。注重代码的可读性。最好给出pipeline的注释 注意注释也要写的好理解一点 不要每句都注释
+写代码的时候。注意不要写过多冗余的防御性代码。注重代码的可读性。最好给出pipeline的注释 注意注释也要写的好理解一点 不要每句都注释 做前端的时候 参考这个 skill https://github.com/xstongxue/best-skills/blob/main/skills/frontend-design/SKILL.md
