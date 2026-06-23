@@ -34,6 +34,7 @@
         <span>API：/api</span>
         <span v-if="jobId">任务：{{ jobId }}</span>
         <span>chunk：{{ sliceSeconds }}s</span>
+        <span>字幕延迟：{{ captionDelayText }}</span>
       </div>
     </section>
 
@@ -50,7 +51,6 @@
             :src="currentVideoUrl"
             @timeupdate="onTimeUpdate"
             @loadedmetadata="onLoadedMetadata"
-            @ended="onChunkEnded"
             @play="onPlay"
             @pause="onPause"
           >
@@ -135,11 +135,8 @@ const status = ref('idle')
 const message = ref('准备就绪')
 const lastEvent = ref('')
 const captions = ref([])
-const pendingChunks = ref([])
 const currentIndex = ref(-1)
 const currentVideoUrl = ref('')
-const currentChunk = ref(null)
-const isHistoryPlayback = ref(false)
 const displayText = ref('')
 const isTyping = ref(false)
 const isPlaying = ref(false)
@@ -147,7 +144,8 @@ const currentTime = ref(0)
 const duration = ref(0)
 const totalSegments = ref(0)
 const isStarting = ref(false)
-const ENABLE_HISTORY_REPLAY = false
+const CAPTION_DISPLAY_DELAY_SECONDS = 2
+let lastSubtitleIndex = -1
 
 let eventSource = null
 let typingTimer = null
@@ -177,17 +175,15 @@ function resetState() {
   message.value = '准备就绪'
   lastEvent.value = ''
   captions.value = []
-  pendingChunks.value = []
   currentIndex.value = -1
   currentVideoUrl.value = ''
-  currentChunk.value = null
-  isHistoryPlayback.value = false
   displayText.value = ''
   isTyping.value = false
   isPlaying.value = false
   currentTime.value = 0
   duration.value = 0
   totalSegments.value = 0
+  lastSubtitleIndex = -1
 }
 
 async function startJob() {
@@ -248,21 +244,30 @@ function handleEventName(name, data) {
 function handleStarted(data) {
   status.value = data.status || 'running'
   totalSegments.value = data.total_segments || 0
+  duration.value = data.duration || 0
+  currentVideoUrl.value = absoluteUrl(data.source_url)
   message.value = `开始处理，共 ${totalSegments.value} 个 chunk`
   lastEvent.value = 'started'
+  nextTick(() => {
+    if (!videoEl.value) return
+    videoEl.value.muted = true
+    videoEl.value.play().catch(() => {
+      message.value = '浏览器阻止自动播放，可手动点击播放'
+    })
+  })
 }
 
 function handleChunkReady(data) {
   handleEventName('chunk_ready', data)
   upsertCaption(data)
-  pendingChunks.value.push(data)
-  if (!currentVideoUrl.value) playNextChunk()
 }
 
 function handleCaptionDelta(data) {
   handleEventName('caption_delta', data)
   upsertCaption({ ...data, description: data.text })
-  if (data.index === currentIndex.value) {
+  if (isCurrentDisplayTimeInSegment(data)) {
+    currentIndex.value = data.index
+    lastSubtitleIndex = data.index
     displayText.value = data.text || ''
     isTyping.value = true
   }
@@ -271,7 +276,9 @@ function handleCaptionDelta(data) {
 function handleCaptionDone(data) {
   handleEventName('caption_done', data)
   upsertCaption(data)
-  if (data.index === currentIndex.value) {
+  if (isCurrentDisplayTimeInSegment(data)) {
+    currentIndex.value = data.index
+    lastSubtitleIndex = data.index
     startTyping(data.description || '')
   }
   message.value = `已完成第 ${data.index + 1} 个 chunk`
@@ -300,52 +307,22 @@ function upsertCaption(item) {
   captions.value = next
 }
 
-async function playNextChunk() {
-  const next = pendingChunks.value.shift()
-  if (!next) return
-  await playChunk(next, false)
-}
-
 async function playHistoryChunk(item) {
   if (!canReplayChunk(item)) return
-  await playChunk(item, true)
+  if (!videoEl.value) return
+  videoEl.value.currentTime = item.start_time || 0
+  videoEl.value.play().catch(() => {})
   message.value = `正在回放第 ${item.index + 1} 个 chunk，后台处理仍在继续`
 }
 
-function canReplayChunk(item) {
-  return ENABLE_HISTORY_REPLAY && Boolean(item.video_url)
+function canReplayChunk() {
+  return false
 }
 
-async function playChunk(chunk, historyPlayback) {
-  currentChunk.value = chunk
-  currentIndex.value = chunk.index
-  currentTime.value = chunk.start_time || 0
-  duration.value = chunk.end_time || 0
-  isHistoryPlayback.value = historyPlayback
-  displayText.value = chunk.description || chunk.text || findCaptionText(chunk.index)
-  currentVideoUrl.value = absoluteUrl(chunk.video_url)
-
-  await nextTick()
-  if (!videoEl.value) return
-
-  videoEl.value.muted = true
-  videoEl.value.currentTime = 0
-  videoEl.value.play().catch(() => {
-    message.value = '浏览器阻止自动播放，可手动点击播放'
-  })
-}
-
-function onChunkEnded() {
-  if (isHistoryPlayback.value) {
-    isHistoryPlayback.value = false
-    return
-  }
-  playNextChunk()
-}
-
-function findCaptionText(index) {
-  const item = captions.value.find(row => row.index === index)
-  return item?.description || item?.text || ''
+function isCurrentDisplayTimeInSegment(segment) {
+  const time = captionDisplayTime(currentTime.value)
+  if (time === null) return false
+  return time >= segment.start_time && time < segment.end_time
 }
 
 function startTyping(text) {
@@ -372,14 +349,49 @@ function startTyping(text) {
 }
 
 function onTimeUpdate() {
-  if (!videoEl.value || !currentChunk.value) return
-  currentTime.value = (currentChunk.value.start_time || 0) + videoEl.value.currentTime
+  if (!videoEl.value) return
+  currentTime.value = videoEl.value.currentTime
+  syncSubtitleByTime(currentTime.value)
 }
 
 function onLoadedMetadata() {
   if (!videoEl.value) return
-  const chunkStart = currentChunk.value?.start_time || 0
-  duration.value = chunkStart + (videoEl.value.duration || sliceSeconds.value)
+  duration.value = videoEl.value.duration || duration.value
+}
+
+function syncSubtitleByTime(time) {
+  const displayTime = captionDisplayTime(time)
+  const subtitle = displayTime === null
+    ? null
+    : captions.value.find(item => displayTime >= item.start_time && displayTime < item.end_time)
+  if (!subtitle) {
+    if (lastSubtitleIndex !== -1) {
+      lastSubtitleIndex = -1
+      currentIndex.value = -1
+      displayText.value = ''
+      isTyping.value = false
+      clearTypingTimer()
+    }
+    return
+  }
+
+  currentIndex.value = subtitle.index
+  if (subtitle.index !== lastSubtitleIndex) {
+    lastSubtitleIndex = subtitle.index
+    startTyping(subtitle.description || subtitle.text || '')
+  } else if (!isTyping.value) {
+    displayText.value = subtitle.description || subtitle.text || displayText.value
+  }
+}
+
+function captionDisplayDelaySeconds() {
+  return CAPTION_DISPLAY_DELAY_SECONDS
+}
+
+function captionDisplayTime(time) {
+  const delay = captionDisplayDelaySeconds()
+  if (delay > 0 && time < delay) return null
+  return Math.max(0, time - delay)
 }
 
 function onPlay() {
@@ -418,6 +430,7 @@ const durationDisplay = computed(() => {
   return formatClock(total || 0)
 })
 const progressLabel = computed(() => `${completedSegments.value}/${totalSegments.value || '-'}`)
+const captionDelayText = computed(() => `${captionDisplayDelaySeconds()}s`)
 const isProcessing = computed(() => ['queued', 'running'].includes(status.value))
 const statusText = computed(() => {
   const map = {
