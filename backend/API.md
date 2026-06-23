@@ -44,6 +44,7 @@ tmux kill-session -t commentary-app
 - Vite 配置：`/data/yjc/frontend/vite.config.js`
 - 后端托管访问：`http://<server-host>:18080/player`
 - Vite 开发访问：`http://<server-host>:5173/frontend/`
+- API 请求路径：`/api/...`，开发环境由 Vite proxy 转发到后端
 - 根路径 `/` 会自动跳转到 `/player`
 
 前端命令：
@@ -55,7 +56,7 @@ npm run dev
 npm run build
 ```
 
-开发时可以运行 `npm run dev`，页面顶部填写后端地址，例如 `http://<server-host>:18080`。也可以通过 URL 参数指定：`/frontend/?api=http://<server-host>:18080`。
+开发时可以运行 `npm run dev`，然后打开 `http://<server-host>:5173/frontend/`。前端代码只请求相对路径 `/api/...`，Vite 会把 `/api` 代理到后端，默认目标是 `http://127.0.0.1:18080`。如需调整后端目标，可设置环境变量 `VITE_BACKEND_TARGET=http://127.0.0.1:18080`。
 
 生产时先执行 `npm run build` 生成 `/data/yjc/frontend/dist`，再启动后端。后端会优先托管 `frontend/dist`；如果还没 build，则托管 `frontend` 源目录里的 `index.html`。
 
@@ -255,10 +256,8 @@ npm run build
 ### 前端示例
 
 ```js
-const API_BASE = 'http://<server-host>:18080'
-
 async function startJob(videoPath) {
-  const res = await fetch(`${API_BASE}/api/jobs`, {
+  const res = await fetch('/api/jobs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ video_path: videoPath })
@@ -274,7 +273,7 @@ async function startJob(videoPath) {
 }
 
 function subscribeJob(jobId) {
-  const es = new EventSource(`${API_BASE}/api/jobs/${jobId}/events`)
+  const es = new EventSource(`/api/jobs/${jobId}/events`)
 
   es.addEventListener('started', event => {
     const data = JSON.parse(event.data)
@@ -283,7 +282,7 @@ function subscribeJob(jobId) {
 
   es.addEventListener('chunk_ready', event => {
     const data = JSON.parse(event.data)
-    const chunkUrl = API_BASE + data.video_url
+    const chunkUrl = data.video_url
     console.log('chunk 视频可播放', chunkUrl)
   })
 
@@ -365,7 +364,7 @@ function subscribeJob(jobId) {
 前端播放地址：
 
 ```js
-const playableUrl = API_BASE + data.video_url
+const playableUrl = data.video_url
 ```
 
 ### 事件：`caption_delta`
@@ -462,10 +461,10 @@ GET /api/media?path=/data/yjc/video/commentary_10min/match_10min.mp4
 前端使用：
 
 ```html
-<video controls :src="API_BASE + videoUrl"></video>
+<video controls :src="videoUrl"></video>
 ```
 
-其中 `videoUrl` 来自 `source_url` 或 `chunk_ready.video_url`。
+其中 `videoUrl` 来自 `source_url` 或 `chunk_ready.video_url`，开发环境会由 Vite proxy 转发到后端。
 
 ## 前端状态建议
 

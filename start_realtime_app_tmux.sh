@@ -9,7 +9,7 @@ PROJECT_ROOT=${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 BACKEND_DIR="$PROJECT_ROOT/backend"
 FRONTEND_DIR="$PROJECT_ROOT/frontend"
 LOG_DIR=${LOG_DIR:-$PROJECT_ROOT/log}
-FRONTEND_API=${FRONTEND_API:-http://127.0.0.1:$BACKEND_PORT}
+BACKEND_TARGET=${BACKEND_TARGET:-http://127.0.0.1:$BACKEND_PORT}
 
 mkdir -p "$LOG_DIR"
 
@@ -31,7 +31,7 @@ tmux new-session -d -s "$SESSION" -n backend \
   "cd '$PROJECT_ROOT' && python3 '$BACKEND_DIR/api_server.py' --host '$HOST' --port '$BACKEND_PORT' 2>&1 | tee '$LOG_DIR/backend_${BACKEND_PORT}.log'"
 
 tmux new-window -t "$SESSION" -n frontend \
-  "cd '$FRONTEND_DIR' && VITE_API_BASE='$FRONTEND_API' npm run dev -- --host '$HOST' --port '$FRONTEND_PORT' 2>&1 | tee '$LOG_DIR/frontend_${FRONTEND_PORT}.log'"
+  "cd '$FRONTEND_DIR' && VITE_BACKEND_TARGET='$BACKEND_TARGET' npm run dev -- --host '$HOST' --port '$FRONTEND_PORT' 2>&1 | tee '$LOG_DIR/frontend_${FRONTEND_PORT}.log'"
 
 LOCAL_BACKEND="http://127.0.0.1:$BACKEND_PORT"
 LOCAL_FRONTEND="http://127.0.0.1:$FRONTEND_PORT/frontend/"
@@ -45,7 +45,7 @@ Backend API:
   $LOCAL_BACKEND/player
 
 Frontend dev:
-  $LOCAL_FRONTEND?api=$LOCAL_BACKEND
+  $LOCAL_FRONTEND
 
 Logs:
   $LOG_DIR/backend_${BACKEND_PORT}.log
@@ -63,6 +63,6 @@ if [ -n "$SERVER_IP" ]; then
 LAN addresses:
   Backend:  http://$SERVER_IP:$BACKEND_PORT
   Player:   http://$SERVER_IP:$BACKEND_PORT/player
-  Frontend: http://$SERVER_IP:$FRONTEND_PORT/frontend/?api=http://$SERVER_IP:$BACKEND_PORT
+  Frontend: http://$SERVER_IP:$FRONTEND_PORT/frontend/
 MSG
 fi

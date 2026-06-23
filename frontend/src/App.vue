@@ -6,14 +6,6 @@
         <span class="pill" :class="statusClass">{{ statusText }}</span>
       </div>
 
-      <div class="form-row api-row">
-        <input
-          v-model.trim="apiBase"
-          class="video-path-input"
-          placeholder="后端地址，例如 http://127.0.0.1:18080"
-        />
-      </div>
-
       <div class="form-row">
         <input
           v-model.trim="videoPath"
@@ -31,7 +23,7 @@
         />
         <button
           class="start-btn"
-          :disabled="isStarting || isProcessing || !videoPath || !apiBase"
+          :disabled="isStarting || isProcessing || !videoPath"
           @click="startJob"
         >
           {{ isStarting ? '启动中...' : '开始处理' }}
@@ -39,7 +31,7 @@
       </div>
 
       <div class="hint-row">
-        <span>后端：{{ normalizedApiBase }}</span>
+        <span>API：/api</span>
         <span v-if="jobId">任务：{{ jobId }}</span>
         <span>chunk：{{ sliceSeconds }}s</span>
       </div>
@@ -135,7 +127,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 
-const apiBase = ref(new URLSearchParams(window.location.search).get('api') || window.location.origin)
 const videoEl = ref(null)
 const videoPath = ref('/data/yjc/video/commentary_10min/match_10min.mp4')
 const sliceSeconds = ref(5)
@@ -161,13 +152,9 @@ const ENABLE_HISTORY_REPLAY = false
 let eventSource = null
 let typingTimer = null
 
-function cleanApiBase() {
-  return String(apiBase.value || '').replace(/\/$/, '')
-}
-
 function absoluteUrl(url) {
   if (!url) return ''
-  return url.startsWith('http') ? url : cleanApiBase() + url
+  return url
 }
 
 function closeEventSource() {
@@ -212,7 +199,7 @@ async function startJob() {
   message.value = '正在创建任务...'
 
   try {
-    const response = await fetch(`${cleanApiBase()}/api/jobs`, {
+    const response = await fetch('/api/jobs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -432,7 +419,6 @@ const durationDisplay = computed(() => {
 })
 const progressLabel = computed(() => `${completedSegments.value}/${totalSegments.value || '-'}`)
 const isProcessing = computed(() => ['queued', 'running'].includes(status.value))
-const normalizedApiBase = computed(() => cleanApiBase() || '-')
 const statusText = computed(() => {
   const map = {
     idle: '未开始',
@@ -517,11 +503,6 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: 1fr auto auto;
   gap: 10px;
-}
-
-.api-row {
-  grid-template-columns: 1fr;
-  margin-bottom: 10px;
 }
 
 .video-path-input {
