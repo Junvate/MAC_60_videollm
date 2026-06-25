@@ -30,11 +30,18 @@
         </button>
       </div>
 
+      <input
+        v-model.trim="teamInfo"
+        class="team-info-input"
+        placeholder="队伍线索，例如 Miami/MIA 粉红色；Philadelphia/PHI 黑色"
+      />
+
       <div class="hint-row">
         <span>API：/api</span>
         <span v-if="jobId">任务：{{ jobId }}</span>
         <span>chunk：{{ sliceSeconds }}s</span>
         <span>字幕延迟：{{ captionDelayText }}</span>
+        <span>队伍线索会传给模型，帮助字幕写出队名</span>
       </div>
     </section>
 
@@ -128,8 +135,9 @@
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 
 const videoEl = ref(null)
-const videoPath = ref('/data/yjc/video/commentary_10min/match_10min.mp4')
+const videoPath = ref('/data/yjc/video0.mp4')
 const sliceSeconds = ref(5)
+const teamInfo = ref('Miami/MIA：粉红色；Philadelphia/PHI：黑色')
 const jobId = ref('')
 const status = ref('idle')
 const message = ref('准备就绪')
@@ -201,6 +209,7 @@ async function startJob() {
       body: JSON.stringify({
         video_path: videoPath.value,
         slice_seconds: Number(sliceSeconds.value) || 5,
+        team_info: teamInfo.value,
       }),
     })
 
@@ -543,6 +552,28 @@ onBeforeUnmount(() => {
   padding: 11px 10px;
   font-size: 14px;
   outline: none;
+}
+
+.small-input:focus {
+  border-color: #f0c040;
+  box-shadow: 0 0 0 3px rgba(240, 192, 64, 0.12);
+}
+
+.team-info-input {
+  width: 100%;
+  margin-top: 10px;
+  background: #171717;
+  color: #f0f0f0;
+  border: 1px solid #3d3d3d;
+  border-radius: 8px;
+  padding: 10px 11px;
+  font-size: 13px;
+  outline: none;
+}
+
+.team-info-input:focus {
+  border-color: #f0c040;
+  box-shadow: 0 0 0 3px rgba(240, 192, 64, 0.12);
 }
 
 .start-btn {

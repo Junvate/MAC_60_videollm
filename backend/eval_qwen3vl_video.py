@@ -15,12 +15,31 @@ DEFAULT_PROMPT = (
     "请基于这段比赛视频，按时间顺序输出接近实时的简洁解说。"
     "优先描述真正发生的比赛过程：哪一方在控球、如何推进、是否形成反击、传中、射门、扑救、解围、犯规、角球、任意球、界外球、庆祝或回放。"
     "如果一个片段里有连续动作，要把动作链说清楚，比如“后场出球-中场推进-禁区前传递-完成射门”。"
-    "如果队名、球员名、比分或结果看不清，不要编造，统一用“进攻方”“防守方”“持球队员”“门将”等中性称呼。"
+    "如果提供了队伍名称、缩写或队服颜色，必须优先用这些线索判断球队。"
+    "能确认其中一队时，直接说队名或缩写；不要把已知球队泛称为“持球队员”。"
+    "只有完全看不出是哪一队时，才使用“进攻方”“防守方”“门将”等中性称呼。"
     "如果画面主要是慢镜头、庆祝、转播镜头或信息不足，也要直接说明，不要硬编比赛细节。"
     "输出 3 到 6 句中文短句，口语化，适合直播延迟 5 到 10 秒的自动解说。"
     "不要输出标题、编号、分析过程或额外说明。"
 )
 
+
+
+def apply_team_context(prompt, team_info=None):
+    team_info = (team_info or "").strip()
+    if not team_info:
+        return prompt
+
+    context = "\n".join(
+        [
+            "已知队伍线索：",
+            team_info,
+            "生成解说时，优先用这些队名、缩写和队服颜色判断球队。",
+            "能确认球队时直接写队名或缩写，不要把已知球队写成“持球队员”。",
+            "如果画面是观众、庆祝或回放，要直接说明镜头内容，不要硬写场上动作。",
+        ]
+    )
+    return f"{prompt}\n\n{context}"
 
 def now():
     return time.perf_counter()
@@ -190,6 +209,7 @@ def write_outputs(rows, out_dir):
         "input_tokens",  # 输入 token 数，包含文本 prompt 和视频视觉 token。
         "output_tokens",  # 输出 token 数，也就是模型回答消耗的 token。
         "total_tokens",  # 总 token 数，通常是输入和输出 token 相加。
+        "team_info",  # 队伍、缩写和队服颜色线索。
         "response",  # 模型生成的视频解说文本。
         "error",  # 失败时记录错误信息，成功时为空。
     ]
@@ -229,10 +249,11 @@ def main():
     p.add_argument("--max-tokens", type=int, default=256)
     p.add_argument("--temperature", type=float, default=0.2)
     p.add_argument("--timeout", type=int, default=1800)
+    p.add_argument("--team-info", default="", help="队伍线索，例如 Miami/MIA 粉红色；Philadelphia/PHI 黑色")
     p.add_argument("--out-dir", default="/data/yjc/results")
     args = p.parse_args()
 
-    prompt = DEFAULT_PROMPT
+    prompt = apply_team_context(DEFAULT_PROMPT, args.team_info)
     fps_list = [float(x) for x in args.fps.split(",") if x.strip()]
     videos = iter_videos(args.input)
     if not videos:
@@ -247,6 +268,7 @@ def main():
                 "fps": fps,
                 "min_pixels": args.min_pixels,
                 "max_pixels": args.max_pixels,
+                "team_info": args.team_info,
             }
             try:
                 row.update(

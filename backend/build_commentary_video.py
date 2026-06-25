@@ -9,16 +9,18 @@ import sys
 from pathlib import Path
 
 try:
-    from .eval_qwen3vl_video import prepare_env, stream_once
+    from .eval_qwen3vl_video import apply_team_context, prepare_env, stream_once
 except ImportError:
-    from eval_qwen3vl_video import prepare_env, stream_once
+    from eval_qwen3vl_video import apply_team_context, prepare_env, stream_once
 
 
 DEFAULT_CAPTION_PROMPT = (
     "你是一名足球比赛中文解说字幕生成器。"
     "请只描述这 5 秒比赛视频里能看见的动作，输出 1 到 2 句简短中文解说。"
     "优先描述控球、推进、传中、射门、扑救、解围、犯规、角球、任意球、界外球、庆祝或回放。"
-    "如果队名、球员名、比分或结果看不清，不要编造，使用“进攻方”“防守方”“持球队员”“门将”等中性称呼。"
+    "如果提供了队伍名称、缩写或队服颜色，必须优先用这些线索判断球队。"
+    "能确认其中一队时，直接说队名或缩写；不要把已知球队泛称为“持球队员”。"
+    "只有完全看不出是哪一队时，才使用“进攻方”“防守方”“门将”等中性称呼。"
     "如果画面主要是慢镜头、庆祝、转播镜头或信息不足，也要直接说明。"
     "不要输出标题、编号、时间码、分析过程、换行或额外说明。"
 )
@@ -272,6 +274,7 @@ def parse_args():
     parser.add_argument("--temperature", type=float, default=0.2)
     parser.add_argument("--timeout", type=int, default=1800)
     parser.add_argument("--prompt-file", help="可选：自定义字幕生成 prompt")
+    parser.add_argument("--team-info", default="", help="队伍线索，例如 Miami/MIA 粉红色；Philadelphia/PHI 黑色")
     parser.add_argument("--skip-captions", action="store_true", help="只切片并生成 slice_times.json")
     parser.add_argument("--force", action="store_true", help="覆盖已有切片和字幕结果")
     return parser.parse_args()
@@ -300,6 +303,7 @@ def main():
         prompt = DEFAULT_CAPTION_PROMPT
         if args.prompt_file:
             prompt = Path(args.prompt_file).expanduser().read_text(encoding="utf-8").strip()
+        prompt = apply_team_context(prompt, args.team_info)
 
         generate_captions(
             slice_metadata,

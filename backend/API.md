@@ -63,20 +63,22 @@ npm run build
 页面能力：
 
 1. 输入服务器视频路径。
-2. 点击“开始处理”。
-3. 自动调用 `POST /api/jobs`。
-4. 自动连接 `GET /api/jobs/{job_id}/events`。
-5. 收到 `chunk_ready` 后播放 chunk 视频。
-6. 收到 `caption_delta` / `caption_done` 后实时显示字幕。
-7. 右侧保留已生成字幕队列，底部显示任务进度。
+2. 可选填写一行队伍线索，帮助模型区分控球方。
+3. 点击“开始处理”。
+4. 自动调用 `POST /api/jobs`。
+5. 自动连接 `GET /api/jobs/{job_id}/events`。
+6. 收到 `chunk_ready` 后播放 chunk 视频。
+7. 收到 `caption_delta` / `caption_done` 后实时显示字幕。
+8. 右侧保留已生成字幕队列，底部显示任务进度。
 
 ## 接入流程
 
 1. 前端让用户输入服务器上的视频路径，例如 `/data/yjc/video/commentary_10min/match_10min.mp4`。
-2. 调用 `POST /api/jobs` 创建处理任务。
-3. 从返回结果里拿到 `job_id` 和 `events_url`。
-4. 用 `EventSource` 连接 `GET /api/jobs/{job_id}/events`。
-5. 按 SSE 事件增量更新前端：视频 chunk、字幕增量、字幕完成、任务完成。
+2. 如果已知两队信息，同时提交 `team_info` 队伍线索。
+3. 调用 `POST /api/jobs` 创建处理任务。
+4. 从返回结果里拿到 `job_id` 和 `events_url`。
+5. 用 `EventSource` 连接 `GET /api/jobs/{job_id}/events`。
+6. 按 SSE 事件增量更新前端：视频 chunk、字幕增量、字幕完成、任务完成。
 
 ## 1. 健康检查
 
@@ -113,7 +115,8 @@ npm run build
   "video_path": "/data/yjc/video/commentary_10min/match_10min.mp4",
   "slice_seconds": 5,
   "sample_fps": 1,
-  "max_pixels": 151200
+  "max_pixels": 151200,
+  "team_info": "Miami/MIA：粉红色；Philadelphia/PHI：黑色"
 }
 ```
 
@@ -133,6 +136,7 @@ npm run build
 | `temperature` | number | 否 | `0.2` | 模型采样温度 |
 | `timeout` | number | 否 | `1800` | 单个模型请求超时时间，单位秒 |
 | `prompt` | string/null | 否 | `null` | 自定义字幕 prompt；为空时使用默认足球解说 prompt |
+| `team_info` | string | 否 | `""` | 队伍、缩写和队服颜色线索，例如 `Miami/MIA：粉红色；Philadelphia/PHI：黑色` |
 
 ### 响应示例
 
@@ -201,7 +205,7 @@ npm run build
       "end_time": 5,
       "video": "/data/yjc/video/realtime_jobs/8a6d1d8f0b7d4d82a4b9b5f53e2f4e8a/slices_5s/slice_0000.mp4",
       "video_url": "/api/media?path=/data/yjc/video/realtime_jobs/8a6d1d8f0b7d4d82a4b9b5f53e2f4e8a/slices_5s/slice_0000.mp4",
-      "description": "持球队员在中场带球推进，防守方上前逼抢。"
+      "description": "Miami 在中场拿球推进，Philadelphia 迅速上前逼抢。"
     }
   ],
   "events_url": "/api/jobs/8a6d1d8f0b7d4d82a4b9b5f53e2f4e8a/events"
@@ -226,7 +230,7 @@ npm run build
       "end_time": 5,
       "video": "/data/yjc/video/realtime_jobs/<job_id>/slices_5s/slice_0000.mp4",
       "video_url": "/api/media?path=/data/yjc/video/realtime_jobs/<job_id>/slices_5s/slice_0000.mp4",
-      "description": "持球队员在中场带球推进，防守方上前逼抢。",
+      "description": "Miami 在中场拿球推进，Philadelphia 迅速上前逼抢。",
       "latency": {
         "first_token_latency_s": 1.23,
         "total_time_s": 4.56
@@ -380,8 +384,8 @@ const playableUrl = data.video_url
   "end_time": 5,
   "video": "/data/yjc/video/realtime_jobs/<job_id>/slices_5s/slice_0000.mp4",
   "video_url": "/api/media?path=/data/yjc/video/realtime_jobs/<job_id>/slices_5s/slice_0000.mp4",
-  "delta": "持球队员",
-  "text": "持球队员"
+  "delta": "Miami",
+  "text": "Miami"
 }
 ```
 
@@ -405,7 +409,7 @@ const playableUrl = data.video_url
   "end_time": 5,
   "video": "/data/yjc/video/realtime_jobs/<job_id>/slices_5s/slice_0000.mp4",
   "video_url": "/api/media?path=/data/yjc/video/realtime_jobs/<job_id>/slices_5s/slice_0000.mp4",
-  "description": "持球队员在中场带球推进，防守方上前逼抢。",
+  "description": "Miami 在中场拿球推进，Philadelphia 迅速上前逼抢。",
   "latency": {
     "first_token_latency_s": 1.23,
     "total_time_s": 4.56

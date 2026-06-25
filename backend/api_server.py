@@ -27,7 +27,7 @@ try:
         write_caption_json,
         write_srt,
     )
-    from .eval_qwen3vl_video import prepare_env, stream_once
+    from .eval_qwen3vl_video import apply_team_context, prepare_env, stream_once
 except ImportError:
     from build_commentary_video import (
         DEFAULT_CAPTION_PROMPT,
@@ -40,7 +40,7 @@ except ImportError:
         write_caption_json,
         write_srt,
     )
-    from eval_qwen3vl_video import prepare_env, stream_once
+    from eval_qwen3vl_video import apply_team_context, prepare_env, stream_once
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -63,6 +63,7 @@ class StartJobRequest(BaseModel):
     temperature: float = 0.2
     timeout: int = 1800
     prompt: Optional[str] = None
+    team_info: str = ""
 
 
 class Job:
@@ -171,7 +172,7 @@ def write_slice_metadata(path, job, duration, slice_seconds, raw_segments):
 
 def run_job(job):
     req = job.request
-    prompt = req.prompt or DEFAULT_CAPTION_PROMPT
+    prompt = apply_team_context(req.prompt or DEFAULT_CAPTION_PROMPT, req.team_info)
     slices_dir = job.out_dir / "slices_5s"
     slice_metadata_path = job.out_dir / "slice_times.json"
     captions_path = job.out_dir / "captions.json"
